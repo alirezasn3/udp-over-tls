@@ -70,7 +70,7 @@ func main() {
 				if err != nil {
 					panic(err)
 				}
-				fmt.Printf("%s -> %s -> %s", remoteConnection.RemoteAddr().String(), localUDPConnection.LocalAddr().String(), config.Connect)
+				fmt.Printf("%s -> %s -> %s\n", remoteConnection.RemoteAddr().String(), localUDPConnection.LocalAddr().String(), config.Connect)
 				go func() {
 					buff := make([]byte, 1024*32)
 					var n int
