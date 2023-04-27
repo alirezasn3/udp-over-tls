@@ -1,0 +1,12 @@
+[Unit]
+Description=A very sneaky tunnel
+After=syslog.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+PIDFile=/run/udp-over-tls.pid
+ExecStart= /root/udp-over-tls/udp-over-tls /root/udp-over-tls/
+
+[Install]
+WantedBy=multi-user.target

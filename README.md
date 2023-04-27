@@ -14,7 +14,7 @@
 ## sample client config file
 ```json
 {
-  "role": "server",
+  "role": "client",
   "connect": "1.2.3.4:443",
   "listen": "0.0.0.0:1194",
   "certificateLocation": "certs/client.pem",

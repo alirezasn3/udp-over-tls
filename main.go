@@ -21,7 +21,11 @@ type Config struct {
 }
 
 func loadConfigFile(config *Config) {
-	bytes, err := os.ReadFile("config.json")
+	configPath := "config.json"
+	if len(os.Args) > 1 {
+		configPath = os.Args[1] + configPath
+	}
+	bytes, err := os.ReadFile(configPath)
 	if err != nil {
 		panic(err)
 	}
