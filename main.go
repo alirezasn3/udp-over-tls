@@ -54,7 +54,10 @@ func main() {
 		}
 		fmt.Println("listening on " + config.Listen)
 		for {
-			remoteConnection, _ := localListener.Accept()
+			remoteConnection, err := localListener.Accept()
+			if err != nil {
+				panic(err)
+			}
 			fmt.Println("accepted connection from " + remoteConnection.RemoteAddr().String())
 			go func(rc net.Conn) {
 				localUDPConnection, err := net.Dial("udp4", config.Connect)
@@ -67,18 +70,27 @@ func main() {
 					defer rc.Close()
 					buff := make([]byte, 1024*8)
 					var n int
+					var e error
 					for {
-						n, _ = rc.Read(buff)
+						n, e = rc.Read(buff)
+						if e != nil {
+							fmt.Println(e)
+							break
+						}
 						localUDPConnection.Write(buff[:n])
 					}
 				}()
 				buff := make([]byte, 1024*8)
 				var n int
+				var e error
 				for {
-					n, _ = localUDPConnection.Read(buff)
+					n, e = localUDPConnection.Read(buff)
+					if e != nil {
+						fmt.Println(e)
+						break
+					}
 					rc.Write(buff[:n])
 				}
-
 			}(remoteConnection)
 		}
 	} else {
