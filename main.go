@@ -10,18 +10,12 @@ import (
 
 var config Config
 
-type Packet struct {
-	address *net.UDPAddr
-	buffer  []byte
-}
-
 type Config struct {
 	Role                string `json:"role"`
 	Connect             string `json:"connect"`
 	Listen              string `json:"listen"`
 	CertificateLocation string `json:"certificateLocation"`
 	KeyLocation         string `json:"KeyLocation"`
-	Threads             int    `json:"threads"`
 	TLSConfig           tls.Config
 }
 
@@ -88,7 +82,6 @@ func main() {
 			}(remoteConnection)
 		}
 	} else {
-		rch := make(chan Packet, 1024)
 		connectionsToServer := make(map[string]*tls.Conn)
 		listenAddress, err := net.ResolveUDPAddr("udp4", config.Listen)
 		if err != nil {
@@ -99,36 +92,36 @@ func main() {
 			panic(err)
 		}
 		fmt.Println("listening on " + config.Listen)
-		go func() {
-			var p Packet
-			for {
-				p = <-rch
-				var connToServer *tls.Conn
-				var ok bool
-				if connToServer, ok = connectionsToServer[p.address.String()]; ok {
-					connToServer.Write(p.buffer)
-				} else {
-					connToServer, _ = tls.Dial("tcp", config.Connect, &config.TLSConfig)
-					connectionsToServer[p.address.String()] = connToServer
-					connToServer.Write(p.buffer)
-					go func(addr *net.UDPAddr, conn *tls.Conn) {
-						buff := make([]byte, 1024*8)
-						var n int
-						for {
-							n, _ = conn.Read(buff)
-							localConnection.WriteToUDP(buff[:n], addr)
-						}
-					}(p.address, connToServer)
-					fmt.Printf("accepted connection from %s\n", p.address.String())
-				}
-			}
-		}()
 		var localClientAddress *net.UDPAddr
 		buff := make([]byte, 1024*8)
 		var n int
+		var connToServer *tls.Conn
+		var ok bool
 		for {
 			n, localClientAddress, _ = localConnection.ReadFromUDP(buff)
-			rch <- Packet{address: localClientAddress, buffer: buff[:n]}
+			if connToServer, ok = connectionsToServer[localClientAddress.String()]; ok {
+				_, err = connToServer.Write(buff[:n])
+				if err != nil {
+					panic(err)
+				}
+			} else {
+				connToServer, _ = tls.Dial("tcp", config.Connect, &config.TLSConfig)
+				connectionsToServer[localClientAddress.String()] = connToServer
+				connToServer.Write(buff[:n])
+				go func(addr *net.UDPAddr, conn *tls.Conn) {
+					buff := make([]byte, 1024*8)
+					var n int
+					var err error
+					for {
+						n, _ = conn.Read(buff)
+						_, err = localConnection.WriteToUDP(buff[:n], addr)
+						if err != nil {
+							panic(err)
+						}
+					}
+				}(localClientAddress, connToServer)
+				fmt.Printf("accepted connection from %s\n", localClientAddress.String())
+			}
 		}
 	}
 }
