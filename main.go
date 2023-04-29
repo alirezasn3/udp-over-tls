@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"sync"
 )
 
 var config Config
@@ -63,17 +62,19 @@ func main() {
 		for {
 			remoteConnection, _ := localListener.Accept()
 			fmt.Println("accepted connection from " + remoteConnection.RemoteAddr().String())
-			go func() {
+			go func(rc net.Conn) {
 				localUDPConnection, err := net.Dial("udp4", config.Connect)
 				if err != nil {
 					panic(err)
 				}
-				fmt.Printf("%s -> %s -> %s\n", remoteConnection.RemoteAddr().String(), localUDPConnection.LocalAddr().String(), config.Connect)
+				defer localUDPConnection.Close()
+				fmt.Printf("%s -> %s -> %s\n", rc.RemoteAddr().String(), localUDPConnection.LocalAddr().String(), config.Connect)
 				go func() {
+					defer rc.Close()
 					buff := make([]byte, 1024*8)
 					var n int
 					for {
-						n, _ = remoteConnection.Read(buff)
+						n, _ = rc.Read(buff)
 						localUDPConnection.Write(buff[:n])
 					}
 				}()
@@ -81,9 +82,10 @@ func main() {
 				var n int
 				for {
 					n, _ = localUDPConnection.Read(buff)
-					remoteConnection.Write(buff[:n])
+					rc.Write(buff[:n])
 				}
-			}()
+
+			}(remoteConnection)
 		}
 	} else {
 		rch := make(chan Packet, 1024)
@@ -97,44 +99,36 @@ func main() {
 			panic(err)
 		}
 		fmt.Println("listening on " + config.Listen)
-		for i := 0; i < config.Threads; i++ {
-			go func(ch <-chan Packet, j int) {
-				var p Packet
-				for p = range ch {
-					var connToServer *tls.Conn
-					var ok bool
-					if connToServer, ok = connectionsToServer[p.address.String()]; ok {
-						connToServer.Write(p.buffer)
-					} else {
-						connToServer, _ = tls.Dial("tcp", config.Connect, &config.TLSConfig)
-						connectionsToServer[p.address.String()] = connToServer
-						connToServer.Write(p.buffer)
-						go func(addr *net.UDPAddr, conn *tls.Conn) {
-							buff := make([]byte, 1024*8)
-							var n int
-							for {
-								n, _ = conn.Read(buff)
-								localConnection.WriteToUDP(buff[:n], addr)
-							}
-						}(p.address, connToServer)
-						fmt.Printf("accepted connection from %s\n", p.address.String())
-					}
+		go func() {
+			var p Packet
+			for {
+				p = <-rch
+				var connToServer *tls.Conn
+				var ok bool
+				if connToServer, ok = connectionsToServer[p.address.String()]; ok {
+					connToServer.Write(p.buffer)
+				} else {
+					connToServer, _ = tls.Dial("tcp", config.Connect, &config.TLSConfig)
+					connectionsToServer[p.address.String()] = connToServer
+					connToServer.Write(p.buffer)
+					go func(addr *net.UDPAddr, conn *tls.Conn) {
+						buff := make([]byte, 1024*8)
+						var n int
+						for {
+							n, _ = conn.Read(buff)
+							localConnection.WriteToUDP(buff[:n], addr)
+						}
+					}(p.address, connToServer)
+					fmt.Printf("accepted connection from %s\n", p.address.String())
 				}
-			}(rch, i)
+			}
+		}()
+		var localClientAddress *net.UDPAddr
+		buff := make([]byte, 1024*8)
+		var n int
+		for {
+			n, localClientAddress, _ = localConnection.ReadFromUDP(buff)
+			rch <- Packet{address: localClientAddress, buffer: buff[:n]}
 		}
-		for i := 0; i < config.Threads; i++ {
-			go func(j int) {
-				var localClientAddress *net.UDPAddr
-				buff := make([]byte, 1024*8)
-				var n int
-				for {
-					n, localClientAddress, _ = localConnection.ReadFromUDP(buff)
-					rch <- Packet{address: localClientAddress, buffer: buff[:n]}
-				}
-			}(i)
-		}
-		var wg sync.WaitGroup
-		wg.Add(1)
-		wg.Wait()
 	}
 }
