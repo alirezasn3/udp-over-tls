@@ -121,13 +121,15 @@ func main() {
 			if connToServer, ok = connectionsToServer[localClientAddress.String()]; ok {
 				_, err = connToServer.Write(buff[:n])
 				if err != nil {
-					panic(err)
+					fmt.Println(err)
+					break
 				}
 			} else {
 				connToServer, _ = tls.Dial("tcp", config.Connect, &config.TLSConfig)
 				connectionsToServer[localClientAddress.String()] = connToServer
 				connToServer.Write(buff[:n])
 				go func(addr *net.UDPAddr, conn *tls.Conn) {
+					defer conn.Close()
 					buff := make([]byte, 1024*8)
 					var n int
 					var err error
@@ -135,7 +137,8 @@ func main() {
 						n, _ = conn.Read(buff)
 						_, err = localConnection.WriteToUDP(buff[:n], addr)
 						if err != nil {
-							panic(err)
+							fmt.Println(err)
+							break
 						}
 					}
 				}(localClientAddress, connToServer)
