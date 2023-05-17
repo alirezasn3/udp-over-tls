@@ -7,6 +7,8 @@ Wants=network-online.target
 Type=simple
 PIDFile=/run/udp-over-tls.pid
 ExecStart= /root/udp-over-tls/udp-over-tls /root/udp-over-tls/
+Restart=on-failure
+RestartSec=1s
 
 [Install]
 WantedBy=multi-user.target

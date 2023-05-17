@@ -63,13 +63,14 @@ func main() {
 		for {
 			remoteConnection, err := localListener.Accept()
 			if err != nil {
-				panic(err)
+				fmt.Println(err)
 			}
 			fmt.Println("accepted connection from " + remoteConnection.RemoteAddr().String())
 			go func(rc net.Conn) {
 				localUDPConnection, err := net.Dial("udp4", config.Connect)
 				if err != nil {
-					panic(err)
+					fmt.Println(err)
+					return
 				}
 				defer localUDPConnection.Close()
 				fmt.Printf("%s -> %s -> %s\n", rc.RemoteAddr().String(), localUDPConnection.LocalAddr().String(), config.Connect)
@@ -84,7 +85,11 @@ func main() {
 							fmt.Println(e)
 							break
 						}
-						localUDPConnection.Write(buff[:n])
+						_, e = localUDPConnection.Write(buff[:n])
+						if e != nil {
+							fmt.Println(e)
+							break
+						}
 					}
 				}()
 				buff := make([]byte, 1024*8)
@@ -96,7 +101,11 @@ func main() {
 						fmt.Println(e)
 						break
 					}
-					rc.Write(buff[:n])
+					_, e = rc.Write(buff[:n])
+					if e != nil {
+						fmt.Println(e)
+						break
+					}
 				}
 			}(remoteConnection)
 		}
@@ -116,29 +125,38 @@ func main() {
 		var n int
 		var connToServer *tls.Conn
 		var ok bool
+		var e error
 		for {
 			n, localClientAddress, _ = localConnection.ReadFromUDP(buff)
 			if connToServer, ok = connectionsToServer[localClientAddress.String()]; ok {
-				_, err = connToServer.Write(buff[:n])
-				if err != nil {
-					fmt.Println(err)
-					break
+				_, e = connToServer.Write(buff[:n])
+				if e != nil {
+					fmt.Println(e)
+					continue
 				}
 			} else {
 				connToServer, _ = tls.Dial("tcp", config.Connect, &config.TLSConfig)
 				connectionsToServer[localClientAddress.String()] = connToServer
-				connToServer.Write(buff[:n])
+				_, e = connToServer.Write(buff[:n])
+				if e != nil {
+					fmt.Println(e)
+					continue
+				}
 				go func(addr *net.UDPAddr, conn *tls.Conn) {
 					defer conn.Close()
 					buff := make([]byte, 1024*8)
 					var n int
 					var err error
 					for {
-						n, _ = conn.Read(buff)
+						n, err = conn.Read(buff)
+						if err != nil {
+							fmt.Println(err)
+							continue
+						}
 						_, err = localConnection.WriteToUDP(buff[:n], addr)
 						if err != nil {
 							fmt.Println(err)
-							break
+							continue
 						}
 					}
 				}(localClientAddress, connToServer)
