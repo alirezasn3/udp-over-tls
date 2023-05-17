@@ -132,6 +132,8 @@ func main() {
 				_, e = connToServer.Write(buff[:n])
 				if e != nil {
 					fmt.Println(e)
+					connToServer.Close()
+					delete(connectionsToServer, localClientAddress.String())
 					continue
 				}
 			} else {
@@ -140,6 +142,8 @@ func main() {
 				_, e = connToServer.Write(buff[:n])
 				if e != nil {
 					fmt.Println(e)
+					connToServer.Close()
+					delete(connectionsToServer, localClientAddress.String())
 					continue
 				}
 				go func(addr *net.UDPAddr, conn *tls.Conn) {
@@ -151,12 +155,12 @@ func main() {
 						n, err = conn.Read(buff)
 						if err != nil {
 							fmt.Println(err)
-							continue
+							break
 						}
 						_, err = localConnection.WriteToUDP(buff[:n], addr)
 						if err != nil {
 							fmt.Println(err)
-							continue
+							break
 						}
 					}
 				}(localClientAddress, connToServer)
