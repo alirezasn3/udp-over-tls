@@ -137,7 +137,11 @@ func main() {
 					continue
 				}
 			} else {
-				connToServer, _ = tls.Dial("tcp", config.Connect, &config.TLSConfig)
+				connToServer, e = tls.Dial("tcp", config.Connect, &config.TLSConfig)
+				if e != nil {
+					fmt.Println(e)
+					continue
+				}
 				connectionsToServer[localClientAddress.String()] = connToServer
 				_, e = connToServer.Write(buff[:n])
 				if e != nil {
