@@ -1,6 +1,6 @@
 # udp over tls tunnel
 
-This program listens on a UDP port on client side and forwards the traffic to the server on over a TLS connection. A new TLS connection to the server is created for each device that connects to the listening port of the client. The server will forward the received traffic over TLS to the specified port over UDP.
+This program listens on a UDP port on client side and forwards the traffic to the server over a TLS connection. A new TLS connection to the server is created for each device that connects to the listening port of the client. The server will forward the received traffic over TLS to the specified port over UDP.
 
 This diagram shows udp-over-tls and wireguard as an example:
 
