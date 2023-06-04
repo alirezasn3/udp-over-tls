@@ -15,11 +15,11 @@ type Config struct {
 	Connect             string `json:"connect"`
 	Listen              string `json:"listen"`
 	CertificateLocation string `json:"certificateLocation"`
-	KeyLocation         string `json:"KeyLocation"`
+	KeyLocation         string `json:"keyLocation"`
 	TLSConfig           tls.Config
 }
 
-func loadConfigFile(config *Config) {
+func init() {
 	configPath := "config.json"
 	if len(os.Args) > 1 {
 		configPath = os.Args[1] + configPath
@@ -32,9 +32,6 @@ func loadConfigFile(config *Config) {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func loadCertificates(config *Config) {
 	certificate, err := tls.LoadX509KeyPair(config.CertificateLocation, config.KeyLocation)
 	if err != nil {
 		panic(err)
@@ -52,8 +49,6 @@ func loadCertificates(config *Config) {
 }
 
 func main() {
-	loadConfigFile(&config)
-	loadCertificates(&config)
 	if config.Role == "server" {
 		localListener, err := tls.Listen("tcp", config.Listen, &config.TLSConfig)
 		if err != nil {
