@@ -1,5 +1,5 @@
 [Unit]
-Description=udp over tls tunnel
+Description=UDP over TLS tunnel
 After=syslog.target network-online.target
 Wants=network-online.target
 
